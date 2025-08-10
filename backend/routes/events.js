@@ -7,13 +7,11 @@ const dotenv = require('dotenv');
 dotenv.config();
 const router = express.Router();
 
-// Middleware to verify token
 const authMiddleware = (req, res, next) => {
     const token = req.header('Authorization');
     if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
 
     try {
-        // Remove 'Bearer ' prefix if present
         const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
         const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
         req.userId = decoded.userId;
@@ -24,7 +22,6 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
-// Get all events
 router.get('/', async (req, res) => {
     try {
         const events = await Event.find().sort({ date: 1 });
@@ -35,7 +32,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get event details by ID
 router.get('/:id', async (req, res) => {
     try {
         const event = await Event.findById(req.params.id);
@@ -47,18 +43,15 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// Register for event (authenticated)
 router.post('/:eventId/register', authMiddleware, async (req, res) => {
     try {
         const eventId = req.params.eventId;
         
-        // Check if event exists
         const event = await Event.findById(eventId);
         if (!event) {
             return res.status(404).json({ msg: 'Event not found' });
         }
 
-        // Check if already registered
         const existing = await Registration.findOne({ 
             user: req.userId, 
             event: eventId 
@@ -80,7 +73,6 @@ router.post('/:eventId/register', authMiddleware, async (req, res) => {
     }
 });
 
-// View user registrations (authenticated) - FIXED ROUTE PATH
 router.get('/registrations/my', authMiddleware, async (req, res) => {
     try {
         const registrations = await Registration.find({ user: req.userId })
@@ -94,7 +86,6 @@ router.get('/registrations/my', authMiddleware, async (req, res) => {
     }
 });
 
-// Cancel registration (authenticated)
 router.delete('/registrations/:registrationId', authMiddleware, async (req, res) => {
     try {
         const registration = await Registration.findById(req.params.registrationId);

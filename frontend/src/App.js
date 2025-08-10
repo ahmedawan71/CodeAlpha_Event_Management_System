@@ -10,13 +10,11 @@ function App() {
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Create axios instance with proper configuration
     const api = React.useMemo(() => {
         const instance = axios.create({
             baseURL: 'http://localhost:5000/api',
         });
 
-        // Add request interceptor to include token
         instance.interceptors.request.use((config) => {
             const currentToken = localStorage.getItem('token');
             if (currentToken) {
@@ -27,7 +25,6 @@ function App() {
             return Promise.reject(error);
         });
 
-        // Add response interceptor to handle token expiration
         instance.interceptors.response.use((response) => {
             return response;
         }, (error) => {
@@ -65,7 +62,6 @@ function App() {
     const fetchRegistrations = async () => {
         try {
             setLoading(true);
-            // FIXED: Updated the API endpoint path
             const res = await api.get('/events/registrations/my');
             setRegistrations(res.data);
         } catch (err) {
@@ -106,10 +102,9 @@ function App() {
     const handleRegisterEvent = async (eventId) => {
         try {
             setLoading(true);
-            // FIXED: Updated the API endpoint path
             await api.post(`/events/${eventId}/register`);
             setMessage('Successfully registered for event!');
-            fetchRegistrations(); // Refresh registrations
+            fetchRegistrations(); 
         } catch (err) {
             console.error('Registration error:', err);
             setMessage('Registration failed: ' + (err.response?.data?.msg || err.message));
@@ -121,10 +116,9 @@ function App() {
     const handleCancel = async (regId) => {
         try {
             setLoading(true);
-            // FIXED: Updated the API endpoint path
             await api.delete(`/events/registrations/${regId}`);
             setMessage('Registration cancelled successfully!');
-            fetchRegistrations(); // Refresh registrations
+            fetchRegistrations(); 
         } catch (err) {
             console.error('Cancel error:', err);
             setMessage('Cancel failed: ' + (err.response?.data?.msg || err.message));

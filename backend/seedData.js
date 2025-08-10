@@ -11,12 +11,10 @@ const seedData = async () => {
         await mongoose.connect(process.env.MONGO_URI);
         console.log('Connected to MongoDB');
 
-        // Clear existing data
         await Event.deleteMany({});
         await User.deleteMany({});
         console.log('Cleared existing data');
 
-        // Create sample user
         const hashedPassword = await bcrypt.hash('123', 10);
         const user = new User({
             email: 'user@gmail.com',
@@ -25,7 +23,6 @@ const seedData = async () => {
         await user.save();
         console.log('Created test user: user@gmail.com / 123');
 
-        // Create sample events
         const events = [
             {
                 title: 'Tech Conference 2025',

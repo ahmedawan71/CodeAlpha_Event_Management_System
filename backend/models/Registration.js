@@ -15,7 +15,6 @@ const RegistrationSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Create compound index to prevent duplicate registrations
 RegistrationSchema.index({ user: 1, event: 1 }, { unique: true });
 
 module.exports = mongoose.model('Registration', RegistrationSchema);
