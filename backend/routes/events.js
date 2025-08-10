@@ -10,24 +10,28 @@ const router = express.Router();
 // Middleware to verify token
 const authMiddleware = (req, res, next) => {
     const token = req.header('Authorization');
-    if (!token) return res.status(401).json({ msg: 'No token' });
+    if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Remove 'Bearer ' prefix if present
+        const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+        const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
         req.userId = decoded.userId;
         next();
     } catch (err) {
-        res.status(401).json({ msg: 'Invalid token' });
+        console.error('Token verification error:', err.message);
+        res.status(401).json({ msg: 'Token is not valid' });
     }
 };
 
 // Get all events
 router.get('/', async (req, res) => {
     try {
-        const events = await Event.find();
+        const events = await Event.find().sort({ date: 1 });
         res.json(events);
     } catch (err) {
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Error fetching events:', err.message);
+        res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
@@ -38,45 +42,76 @@ router.get('/:id', async (req, res) => {
         if (!event) return res.status(404).json({ msg: 'Event not found' });
         res.json(event);
     } catch (err) {
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Error fetching event:', err.message);
+        res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
 // Register for event (authenticated)
-router.post('/register/:eventId', authMiddleware, async (req, res) => {
+router.post('/:eventId/register', authMiddleware, async (req, res) => {
     try {
-        const existing = await Registration.findOne({ user: req.userId, event: req.params.eventId });
-        if (existing) return res.status(400).json({ msg: 'Already registered' });
+        const eventId = req.params.eventId;
+        
+        // Check if event exists
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ msg: 'Event not found' });
+        }
 
-        const registration = new Registration({ user: req.userId, event: req.params.eventId });
+        // Check if already registered
+        const existing = await Registration.findOne({ 
+            user: req.userId, 
+            event: eventId 
+        });
+        if (existing) {
+            return res.status(400).json({ msg: 'Already registered for this event' });
+        }
+
+        const registration = new Registration({ 
+            user: req.userId, 
+            event: eventId 
+        });
         await registration.save();
-        res.json({ msg: 'Registered successfully' });
+        
+        res.json({ msg: 'Successfully registered for event', registrationId: registration._id });
     } catch (err) {
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Error registering for event:', err.message);
+        res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
-// View user registrations (authenticated)
-router.get('/my-registrations', authMiddleware, async (req, res) => {
+// View user registrations (authenticated) - FIXED ROUTE PATH
+router.get('/registrations/my', authMiddleware, async (req, res) => {
     try {
-        const registrations = await Registration.find({ user: req.userId }).populate('event');
+        const registrations = await Registration.find({ user: req.userId })
+            .populate('event', 'title description date')
+            .sort({ createdAt: -1 });
+        
         res.json(registrations);
     } catch (err) {
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Error fetching registrations:', err.message, err.stack);
+        res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
 // Cancel registration (authenticated)
-router.delete('/cancel/:registrationId', authMiddleware, async (req, res) => {
+router.delete('/registrations/:registrationId', authMiddleware, async (req, res) => {
     try {
         const registration = await Registration.findById(req.params.registrationId);
-        if (!registration || registration.user.toString() !== req.userId) {
+        
+        if (!registration) {
             return res.status(404).json({ msg: 'Registration not found' });
         }
-        await registration.deleteOne();
-        res.json({ msg: 'Cancelled successfully' });
+        
+        if (registration.user.toString() !== req.userId) {
+            return res.status(403).json({ msg: 'Not authorized to cancel this registration' });
+        }
+        
+        await Registration.findByIdAndDelete(req.params.registrationId);
+        res.json({ msg: 'Registration cancelled successfully' });
     } catch (err) {
-        res.status(500).json({ msg: 'Server error' });
+        console.error('Error cancelling registration:', err.message);
+        res.status(500).json({ msg: 'Server error', error: err.message });
     }
 });
 
